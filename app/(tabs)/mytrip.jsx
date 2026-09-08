@@ -2,6 +2,7 @@
 import { useTheme } from "@/context/ThemeContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -19,33 +20,38 @@ import {
 } from "react-native";
 
 const DESTINATION_IMAGES = {
-  paris: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Tour_Eiffel_Wikimedia_Commons.jpg/800px-Tour_Eiffel_Wikimedia_Commons.jpg",
-  maldives: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Maldivesfish2.jpg/800px-Maldivesfish2.jpg",
-  london: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/London_Skyline_%28125508655%29.jpeg/800px-London_Skyline_%28125508655%29.jpeg",
-  dubai: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Dubai_Marina_Skyline.jpg/800px-Dubai_Marina_Skyline.jpg",
-  tokyo: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Skyscrapers_of_Shinjuku_2009_January.jpg/800px-Skyscrapers_of_Shinjuku_2009_January.jpg",
-  bali: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Pura_Ulun_Danu_Bratan%2C_Bali.jpg/800px-Pura_Ulun_Danu_Bratan%2C_Bali.jpg",
-  singapore: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/MBS_gardens_by_the_bay.jpg/800px-MBS_gardens_by_the_bay.jpg",
-  rome: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Colosseo_2020.jpg/800px-Colosseo_2020.jpg",
-  barcelona: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Sagrada_Familia_01.jpg/800px-Sagrada_Familia_01.jpg",
-  newyork: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Southwest_corner_of_Central_Park%2C_looking_east%2C_NYC.jpg/800px-Southwest_corner_of_Central_Park%2C_looking_east%2C_NYC.jpg",
-  thailand: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Wat_Phra_Kaew_Grand_Palace_Bangkok.jpg/800px-Wat_Phra_Kaew_Grand_Palace_Bangkok.jpg",
-  greece: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Santorini_sunset3.jpg/800px-Santorini_sunset3.jpg",
-  switzerland: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Matterhorn_from_Domh%C3%BCtte_-_2012-08-02.jpg/800px-Matterhorn_from_Domh%C3%BCtte_-_2012-08-02.jpg",
-  india: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Taj_Mahal%2C_Agra%2C_India_edit3.jpg/800px-Taj_Mahal%2C_Agra%2C_India_edit3.jpg",
-  england: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/London_Skyline_%28125508655%29.jpeg/800px-London_Skyline_%28125508655%29.jpeg",
+  "paris": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Tour_Eiffel_Wikimedia_Commons.jpg/800px-Tour_Eiffel_Wikimedia_Commons.jpg",
+  "maldives": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Maldivesfish2.jpg/800px-Maldivesfish2.jpg",
+  "london": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/London_Skyline_%28125508655%29.jpeg/800px-London_Skyline_%28125508655%29.jpeg",
+  "dubai": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Dubai_Marina_Skyline.jpg/800px-Dubai_Marina_Skyline.jpg",
+  "tokyo": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Skyscrapers_of_Shinjuku_2009_January.jpg/800px-Skyscrapers_of_Shinjuku_2009_January.jpg",
+  "bali": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Pura_Ulun_Danu_Bratan%2C_Bali.jpg/800px-Pura_Ulun_Danu_Bratan%2C_Bali.jpg",
+  "singapore": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/MBS_gardens_by_the_bay.jpg/800px-MBS_gardens_by_the_bay.jpg",
+  "rome": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Colosseo_2020.jpg/800px-Colosseo_2020.jpg",
+  "barcelona": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Sagrada_Familia_01.jpg/800px-Sagrada_Familia_01.jpg",
+  "new york": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Southwest_corner_of_Central_Park%2C_looking_east%2C_NYC.jpg/800px-Southwest_corner_of_Central_Park%2C_looking_east%2C_NYC.jpg",
+  "thailand": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Wat_Phra_Kaew_Grand_Palace_Bangkok.jpg/800px-Wat_Phra_Kaew_Grand_Palace_Bangkok.jpg",
+  "greece": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Santorini_sunset3.jpg/800px-Santorini_sunset3.jpg",
+  "switzerland": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Matterhorn_from_Domh%C3%BCtte_-_2012-08-02.jpg/800px-Matterhorn_from_Domh%C3%BCtte_-_2012-08-02.jpg",
+  "india": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Taj_Mahal%2C_Agra%2C_India_edit3.jpg/800px-Taj_Mahal%2C_Agra%2C_India_edit3.jpg",
+  "england": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/London_Skyline_%28125508655%29.jpeg/800px-London_Skyline_%28125508655%29.jpeg",
 };
+
+const normalize = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
 
 const getDestinationImage = (locationName, photoRef) => {
   if (photoRef && process.env.EXPO_PUBLIC_GOOGLE_MAP_KEY) {
     return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${photoRef}&key=${process.env.EXPO_PUBLIC_GOOGLE_MAP_KEY}`;
   }
-  const lower = (locationName || "").toLowerCase();
+  const normalizedInput = normalize(locationName);
   for (const [key, url] of Object.entries(DESTINATION_IMAGES)) {
-    if (lower.includes(key)) return url;
+    if (normalizedInput.includes(normalize(key))) return url;
   }
   return `https://picsum.photos/seed/${encodeURIComponent(locationName || "travel")}/800/400`;
 };
+
+const getFallbackImage = (locationName) =>
+  `https://picsum.photos/seed/${encodeURIComponent(locationName || "travel")}/800/400`;
 
 const getBudgetInfo = (budget) => {
   switch (budget?.toLowerCase()) {
@@ -79,14 +85,24 @@ export default function MyTrip() {
   const { theme } = useTheme();
 
   useEffect(() => {
-    loadTrips();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        loadTrips(user);
+      } else {
+        setLoading(false);
+        setTrips([]);
+      }
+    });
     const sub = Dimensions.addEventListener("change", ({ window }) => setScreenWidth(window.width));
-    return () => sub?.remove?.();
+    return () => {
+      unsubscribe();
+      sub?.remove?.();
+    };
   }, []);
 
-  const loadTrips = async () => {
+  const loadTrips = async (userArg) => {
     try {
-      const user = auth.currentUser;
+      const user = userArg || auth.currentUser;
       if (!user) { setLoading(false); return; }
       const tripsQuery = query(collection(db, "UserTrips"), where("userEmail", "==", user.email));
       const querySnapshot = await getDocs(tripsQuery);
@@ -118,6 +134,14 @@ export default function MyTrip() {
   const handleTripPress = useCallback((trip) => {
     router.push({ pathname: "/trip-details", params: { trip: JSON.stringify(trip) } });
   }, [router]);
+
+  const handleImageError = useCallback((tripId, locationName) => {
+    setTrips((prev) =>
+      prev.map((t) =>
+        t.id === tripId ? { ...t, __imgFallback: getFallbackImage(locationName) } : t
+      )
+    );
+  }, []);
 
   const isNarrow = screenWidth < 700;
   const contentMaxWidth = isWeb ? Math.min(screenWidth, 1100) : screenWidth;
@@ -202,7 +226,7 @@ export default function MyTrip() {
               <View style={styles.tripsGrid}>
                 {trips.map((trip, index) => {
                   const locationName = trip.tripData?.locationInfo?.name || "Unknown";
-                  const imageUri = getDestinationImage(locationName, trip.tripData?.locationInfo?.photoRef);
+                  const imageUri = trip.__imgFallback || getDestinationImage(locationName, trip.tripData?.locationInfo?.photoRef);
                   return (
                     <TouchableOpacity
                       key={trip.id}
@@ -211,7 +235,12 @@ export default function MyTrip() {
                       activeOpacity={0.85}
                     >
                       <View style={styles.tripImageContainer}>
-                        <Image source={{ uri: imageUri }} style={styles.tripImage} resizeMode="cover" />
+                        <Image
+                          source={{ uri: imageUri }}
+                          style={styles.tripImage}
+                          resizeMode="cover"
+                          onError={() => handleImageError(trip.id, locationName)}
+                        />
                         <View style={[styles.tripBadge, { backgroundColor: theme.colors.primary }]}>
                           <Text style={[styles.tripBadgeText, { fontFamily: "Outfit-Bold" }]}>
                             Trip #{trips.length - index}
