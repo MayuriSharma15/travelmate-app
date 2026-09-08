@@ -1,14 +1,9 @@
-// app/auth/sign-in/index.js
+﻿// app/auth/sign-in/index.js
 
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import {
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-} from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { signup, login, forgotPassword } from "../../../configs/authService";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -26,11 +21,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth, db } from "../../../configs/FirebaseConfig";
 
 const { width: W } = Dimensions.get("window");
 
-// ✅ HARDCODED admin credentials — no .env dependency
 const ADMIN_ID = "mayuri@admin.com";
 const ADMIN_PASS = "12345678";
 
@@ -142,23 +135,17 @@ export default function AuthScreen() {
 
   const clear = () => setError("");
 
-  // ✅ Fixed admin login
   const handleAdminLogin = () => {
     const enteredId = adminId.trim().toLowerCase();
     const enteredPass = adminPass.trim();
-
-    console.log("Admin login attempt:", enteredId);
-    console.log("Expected:", ADMIN_ID);
 
     if (!enteredId || !enteredPass) {
       return setError("Please enter Admin ID and password.");
     }
 
     if (enteredId === ADMIN_ID.toLowerCase() && enteredPass === ADMIN_PASS) {
-      console.log("✅ Admin login successful!");
       router.replace("/admin");
     } else {
-      console.log("❌ Admin login failed");
       setError("Invalid Admin ID or password. Check your credentials.");
     }
   };
@@ -169,10 +156,10 @@ export default function AuthScreen() {
     setLoading(true);
     setError("");
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), pass);
+      await login(email.trim(), pass);
       router.replace("/(tabs)/travel");
     } catch (e) {
-      setError(friendly(e.code));
+      setError(e.message);
     }
     setLoading(false);
   };
@@ -186,18 +173,7 @@ export default function AuthScreen() {
     setLoading(true);
     setError("");
     try {
-      const cred = await createUserWithEmailAndPassword(
-        auth,
-        email.trim(),
-        pass,
-      );
-      await setDoc(doc(db, "users", cred.user.uid), {
-        uid: cred.user.uid,
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        role: "user",
-        createdAt: new Date().toISOString(),
-      });
+      await signup(name.trim(), email.trim(), pass);
       Alert.alert("Account Created!", `Welcome, ${name.trim()}!`, [
         {
           text: "Start Exploring",
@@ -205,7 +181,7 @@ export default function AuthScreen() {
         },
       ]);
     } catch (e) {
-      setError(friendly(e.code));
+      setError(e.message);
     }
     setLoading(false);
   };
@@ -213,24 +189,12 @@ export default function AuthScreen() {
   const handleForgot = async () => {
     if (!email.trim()) return setError("Enter your email address first.");
     try {
-      await sendPasswordResetEmail(auth, email.trim());
-      Alert.alert("Reset Link Sent", "Check your email inbox.");
+      await forgotPassword(email.trim());
+      Alert.alert("Reset Link Sent", "If that email exists, check your inbox.");
     } catch (e) {
-      setError(friendly(e.code));
+      setError(e.message);
     }
   };
-
-  const friendly = (code) =>
-    ({
-      "auth/user-not-found": "No account found with this email.",
-      "auth/wrong-password": "Incorrect password.",
-      "auth/invalid-credential": "Incorrect email or password.",
-      "auth/email-already-in-use": "An account already exists with this email.",
-      "auth/weak-password": "Password must be at least 6 characters.",
-      "auth/too-many-requests": "Too many attempts. Try again later.",
-      "auth/network-request-failed": "No internet connection.",
-      "auth/invalid-email": "Please enter a valid email address.",
-    })[code] || "Something went wrong. Please try again.";
 
   const pwStrength = (p) => {
     if (!p || p.length < 1) return null;
@@ -268,7 +232,6 @@ export default function AuthScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Hero */}
           <LinearGradient
             colors={[BLUE, BLUE2]}
             style={S.hero}
@@ -298,7 +261,6 @@ export default function AuthScreen() {
                 transform: [{ translateY: slideAnim }],
               }}
             >
-              {/* Role Switcher */}
               <View style={S.roleSwitcher}>
                 <Animated.View
                   style={[S.rolePill, { transform: [{ translateX: pillX }] }]}
@@ -342,7 +304,6 @@ export default function AuthScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* USER */}
               {role === "user" && (
                 <Animated.View style={{ opacity: cardOpacity }}>
                   <View style={S.modeTabs}>
@@ -537,7 +498,6 @@ export default function AuthScreen() {
                 </Animated.View>
               )}
 
-              {/* ADMIN */}
               {role === "admin" && (
                 <Animated.View style={{ opacity: cardOpacity }}>
                   <View style={S.adminInfoCard}>
@@ -591,7 +551,6 @@ export default function AuthScreen() {
 
                   {!!error && <ErrorBanner msg={error} />}
 
-                  {/* ✅ Show what credentials to use */}
                   <View style={S.credHint}>
                     <Ionicons
                       name="information-circle-outline"
