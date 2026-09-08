@@ -18,7 +18,7 @@ export const chatSession = {
     this.history.push({ role: "user", content: prompt });
 
     const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile", // fast & free on Groq
+      model: "llama-3.1-8b-instant", // fast & free on Groq
       messages: [
         {
           role: "system",
